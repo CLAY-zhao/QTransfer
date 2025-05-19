@@ -9,6 +9,7 @@ build:
 	--add-data "logo.ico;." \
 	--hidden-import="pystray.PIL" \
 	--additional-hooks-dir=. \
+	--target-architecture=win32 ^ \
 	-n QTransfer \
 	main.py
 

@@ -1,9 +1,7 @@
 import os
 import sys
-import socket
-from pathlib import Path
+import ctypes
 import tkinter as tk
-from typing import Union
 from threading import Thread, Event
 
 import uvicorn
@@ -11,42 +9,26 @@ import pystray
 import qrcode
 from qrcode.constants import ERROR_CORRECT_L
 from PIL import Image, ImageTk
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, UploadFile, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+
+from utils import get_static_path, get_local_ip
 
 app = FastAPI()
 
 UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-def get_static_path(relative_path):
-    if getattr(sys, "frozen", False):
-        base_path = Path(sys._MEIPASS)
-    else:
-        base_path = Path(__file__).parent
-
-    return base_path / relative_path
-
-
 STATIC_PATH = get_static_path("static")  # 直接指向static目录
 UPLOAD_HTML_PATH = get_static_path("static/upload.html")
 
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-def get_local_ip() -> Union[None, str]:
-    # 获取本机IP
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # 并不会真正建立连接
-        sock.connect(("10.255.255.255", 1))
-        ip = sock.getsockname()[0]
-    except Exception:
-        ip = "127.0.0.1"
-    finally:
-        sock.close()
-    
-    return ip
+# 存储所有连接的设备
+connected_devices: set = set()
+
+ip = get_local_ip()
+port = 8000
+url = f"http://{ip}:{port}"
 
 
 def center_window(window, width: int, height: int) -> None:
@@ -94,7 +76,7 @@ def show_qrcode(url: str) -> None:
 async def upload_page():
     if not UPLOAD_HTML_PATH.exists():
         raise RuntimeError(status_code=500, detail="传输页面丢失!")
-
+    
     return FileResponse(str(UPLOAD_HTML_PATH))
 
 
@@ -105,6 +87,34 @@ async def upload_file(file: UploadFile):
         content = await file.read()
         buffer.write(content)
     return {"info": f"文件 '{file.filename}' 上传成功", "filename": file.filename}
+
+
+@app.get("/record_ip")
+async def record_ip(request: Request):
+    client_ip = (
+        request.headers.get("X-Real-IP") or
+        request.headers.get("X-Forwarded-For", "").split(",")[0] or
+        request.client.host
+    )
+    connected_devices.add(client_ip)
+    return {"status": "IP记录成功", "ip": client_ip}
+
+
+@app.get("/remove_ip")
+async def remove_ip(request: Request):
+    client_ip = (
+        request.headers.get("X-Real-IP") or
+        request.headers.get("X-Forwarded-For", "").split(",")[0] or
+        request.client.host
+    )
+    if client_ip in connected_devices:
+        connected_devices.remove(client_ip)
+    return {"status": "IP已移除", "ip": None}
+
+
+@app.get("/get_ips")
+async def get_ips():
+    return {"devices": list(connected_devices)}
 
 
 def create_tray_icon(stop_event) -> None:
@@ -146,10 +156,14 @@ def stop_server(stop_event) -> None:
 app.mount("/static", StaticFiles(directory=str(STATIC_PATH)), name="static")
 
 
-if __name__ == "__main__":
-    ip = get_local_ip()
-    port = 8000
-    url = f"http://{ip}:{port}"
+def check_windows_version() -> None:
+    if sys.getwindowsversion().major < 6:
+        ctypes.windll.user32.MessageBoxW(0, "需要Windows 7或更高版本", "错误", 0x10)
+        sys.exit(-1)
+
+
+def main():
+    check_windows_version()
     
     stop_event: Event = Event()
 
@@ -172,3 +186,7 @@ if __name__ == "__main__":
             server.run()
 
     run_server()
+
+
+if __name__ == "__main__":
+    main()
