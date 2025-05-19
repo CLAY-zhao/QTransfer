@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手机文件上传</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .title {
+            text-align: center;
+            letter-spacing: .5px;
+        }
+
+        .upload-container {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        #upload-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #upload-btn:hover {
+            background-color: #45a049;
+        }
+
+        #progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+
+        #progress-bar {
+            width: 100%;
+            background-color: #f3f3f3;
+            border-radius: 5px;
+        }
+
+        #progress {
+            height: 20px;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            width: 0%;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+        }
+
+        #status {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 class="title">手机文件上传</h1>
+    <div class="upload-container">
+        <input type="file" id="file-input" multiple>
+        <button id="upload-btn" onclick="document.getElementById('file-input').click()">选择文件</button>
+        <p id="selected-files"></p>
+    </div>
+
+    <div id="progress-container">
+        <div id="progress-bar">
+            <div id="progress">0%</div>
+        </div>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const selectedFiles = document.getElementById('selected-files');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress');
+        const status = document.getElementById('status');
+
+        fileInput.addEventListener('change', function (e) {
+            if (this.files.length > 0) {
+                let fileNames = [];
+                for (let i = 0; i < this.files.length; i++) {
+                    fileNames.push(this.files[i].name);
+                }
+                selectedFiles.textContent = "已选择: " + fileNames.join(", ");
+
+                // 自动开始上传
+                uploadFiles(this.files);
+            }
+        });
+
+        async function uploadFiles(files) {
+            progressContainer.style.display = "block";
+            status.textContent = "准备上传...";
+
+            const formData = new FormData();
+            // for (let i = 0; i < files.length; i++) {
+            //     formData.append('files', files[i]);
+            // }
+
+            formData.append('file', files[0])
+
+            try {
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.addEventListener('progress', function (e) {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        progressBar.style.width = percent + '%';
+                        progressBar.textContent = percent + '%';
+                    }
+                });
+
+                xhr.addEventListener('load', function () {
+                    if (xhr.status === 200) {
+                        status.textContent = "上传成功!";
+                        setTimeout(() => {
+                            progressContainer.style.display = "none";
+                            selectedFiles.textContent = "";
+                            fileInput.value = "";
+                        }, 2000);
+                    } else {
+                        status.textContent = "上传失败: " + xhr.responseText;
+                    }
+                });
+
+                xhr.open('POST', '/upload', true);
+                xhr.send(formData);
+
+                status.textContent = "上传中...";
+            } catch (error) {
+                status.textContent = "上传出错: " + error.message;
+            }
+        }
+    </script>
+</body>
+
+</html>
