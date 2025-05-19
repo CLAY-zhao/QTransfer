@@ -1,16 +1,15 @@
 import os
 import sys
 import socket
-# import webbrowser
 from pathlib import Path
 import tkinter as tk
 from typing import Union
 from threading import Thread, Event
 
-import qrcode
-import qrcode.constants
 import uvicorn
 import pystray
+import qrcode
+from qrcode.constants import ERROR_CORRECT_L
 from PIL import Image, ImageTk
 from fastapi import FastAPI, UploadFile
 from fastapi.staticfiles import StaticFiles
@@ -35,15 +34,6 @@ STATIC_PATH = get_static_path("static")  # 直接指向static目录
 UPLOAD_HTML_PATH = get_static_path("static/upload.html")
 
 
-# def open_upload_folder():
-#     if platform.system() == "Windows":
-#         os.startfile("uploads")
-#     elif platform.system() == "Darwin":
-#         subprocess.run(["open", "uploads"])
-#     else:
-#         subprocess.run(["xdg-open", "uploads"])
-
-
 def get_local_ip() -> Union[None, str]:
     # 获取本机IP
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -59,7 +49,7 @@ def get_local_ip() -> Union[None, str]:
     return ip
 
 
-def center_window(window, width: int, height: int):
+def center_window(window, width: int, height: int) -> None:
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
 
@@ -69,11 +59,11 @@ def center_window(window, width: int, height: int):
     window.geometry(f"{width}x{height}+{x}+{y}")
 
 
-def show_qrcode(url: str):
+def show_qrcode(url: str) -> None:
     # 生成二维码
     qr = qrcode.QRCode(
         version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        error_correction=ERROR_CORRECT_L,
         box_size=10,
         border=4
     )
@@ -99,8 +89,6 @@ def show_qrcode(url: str):
 
     root.mainloop()
 
-    # os._exit(0) # Exit the program immediately after closing the webview window
-
 
 @app.get("/upload")
 async def upload_page():
@@ -119,7 +107,7 @@ async def upload_file(file: UploadFile):
     return {"info": f"文件 '{file.filename}' 上传成功", "filename": file.filename}
 
 
-def create_tray_icon(stop_event):
+def create_tray_icon(stop_event) -> None:
     """创建带自定义图标的系统托盘图标"""
     try:
         # 尝试加载自定义ICO文件（兼容打包环境）
@@ -149,7 +137,7 @@ def create_tray_icon(stop_event):
 
     icon.run()
 
-def stop_server(stop_event):
+def stop_server(stop_event) -> None:
     """停止服务器"""
     stop_event.set()
     os._exit(0)
@@ -159,28 +147,28 @@ app.mount("/static", StaticFiles(directory=str(STATIC_PATH)), name="static")
 
 
 if __name__ == "__main__":
-    stop_event = Event()
+    ip = get_local_ip()
+    port = 8000
+    url = f"http://{ip}:{port}"
+    
+    stop_event: Event = Event()
 
     Thread(
         target=create_tray_icon,
         args=(stop_event,),
         daemon=True
     ).start()
-
-    ip = get_local_ip()
-    port = 8000
-    url = f"http://{ip}:{port}"
-
-    def run_server():
-        config = uvicorn.Config(app, host="0.0.0.0", port=port, log_config=None, access_log=False)
-        server = uvicorn.Server(config)
-        while not stop_event.is_set():
-            server.run()
-
+    
     Thread(
         target=show_qrcode,
         args=(url + "/static/upload.html",),
         daemon=False
     ).start()
+
+    def run_server() -> None:
+        config = uvicorn.Config(app, host="0.0.0.0", port=port, log_config=None, access_log=False)
+        server = uvicorn.Server(config)
+        while not stop_event.is_set():
+            server.run()
 
     run_server()
