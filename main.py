@@ -60,7 +60,6 @@ class ConnectionManager(object):
                 chunk = file.read(self.CHUNK_SIZE)
                 if not chunk:
                     break
-                print(chunk)
                 await websocket.send_bytes(chunk)
 
         # 发送完成标记

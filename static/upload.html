@@ -306,6 +306,11 @@
                 this.elements.total.textContent = this.formatSize(this.totalSize);
             }
 
+            setTotalSize(totalSize) {
+                this.totalSize = totalSize
+                this.elements.total.textContent = this.formatSize(this.totalSize)
+            }
+
             setDownloadTitle(title) {
                 this.elements.container.style.display = 'block'
                 this.elements.filename.textContent = `正在下载: ${title}`
@@ -373,7 +378,7 @@
             async startTransfer(metadata) {
                 this.fileName = metadata.filename;
                 this.fileSize = metadata.filesize;
-                progress.totalSize = this.fileSize
+                progress.setTotalSize(this.fileSize)
                 progress.setDownloadTitle(this.fileName)
 
                 if (this.canUseFileSystemAPI()) {
