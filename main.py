@@ -1,83 +1,112 @@
 import os
 import sys
 import ctypes
-import tkinter as tk
 from threading import Thread, Event
+from typing import Dict
 
 import uvicorn
 import pystray
-import qrcode
-from qrcode.constants import ERROR_CORRECT_L
-from PIL import Image, ImageTk
-from fastapi import FastAPI, UploadFile, Request
+from PIL import Image
+from fastapi import FastAPI, UploadFile, Request, WebSocket, WebSocketDisconnect, Body
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
+from ui import show_qrcode
 from utils import get_static_path, get_local_ip
+from config import connected_devices
 
 app = FastAPI()
 
 UPLOAD_DIR = "uploads"
 STATIC_PATH = get_static_path("static")  # 直接指向static目录
-UPLOAD_HTML_PATH = get_static_path("static/upload.html")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# 存储所有连接的设备
-connected_devices: set = set()
 
 ip = get_local_ip()
 port = 8000
 url = f"http://{ip}:{port}"
 
 
-def center_window(window, width: int, height: int) -> None:
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
+class ConnectionManager(object):
 
-    x = (screen_width - width) // 2
-    y = (screen_height - height) // 2
+    CHUNK_SIZE: int = 1024 * 64
 
-    window.geometry(f"{width}x{height}+{x}+{y}")
+    def __init__(self):
+        self.active_connections: Dict[str: WebSocket] = {}
+
+    async def connect(self, websocket: WebSocket, client_ip: str):
+        await websocket.accept()
+        self.active_connections[client_ip] = websocket
+
+    def disconnect(self, client_ip: str):
+        self.active_connections.pop(client_ip)
+
+    async def send_personal_message(self, message: str, client_ip: str, filepath: str):
+        if client_ip in self.active_connections:
+            websocket = self.active_connections[client_ip]
+            websocket.filepath = filepath
+            await websocket.send_text(message)
+
+    async def transfer_file(self, client_ip: str):
+        websocket: WebSocket = self.active_connections[client_ip]
+
+        await websocket.send_json({
+            "type": "file_metadata",
+            "filename": os.path.basename(websocket.filepath),
+            "filesize": os.path.getsize(websocket.filepath)
+        })
+
+        with open(websocket.filepath, "rb") as file:
+            while True:
+                chunk = file.read(self.CHUNK_SIZE)
+                if not chunk:
+                    break
+                print(chunk)
+                await websocket.send_bytes(chunk)
+
+        # 发送完成标记
+        await websocket.send_json({
+            "type": "transfer_complete",
+        })
+
+        return {"status": "success"}
 
 
-def show_qrcode(url: str) -> None:
-    # 生成二维码
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=ERROR_CORRECT_L,
-        box_size=10,
-        border=4
+manager: ConnectionManager = ConnectionManager()
+
+
+@app.websocket("/ws/connect")
+async def websocket_endpoint(websocket: WebSocket):
+    client_ip = (
+        websocket.headers.get("X-Real-IP") or
+        websocket.headers.get("X-Forwarded-For", "").split(",")[0] or
+        websocket.client.host
     )
-    qr.add_data(url)
-    qr.make(fit=True)
-    image = qr.make_image(fill_color="black", back_color="white")
-    
-    root = tk.Tk()
-    root.title("手机扫码上传文件")
-
-    center_window(root, 400, 450)
-
-    tk_image = ImageTk.PhotoImage(image)
-
-    label = tk.Label(root, image=tk_image)
-    label.pack()
-
-    url_label = tk.Label(root, text=f"或访问: {url}", font=("Arial", 10))
-    url_label.pack()
-
-    clost_btn = tk.Button(root, text="关闭", command=root.destroy)
-    clost_btn.pack()
-
-    root.mainloop()
+    await manager.connect(websocket, client_ip)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            file_response, _, status = data.split(":")
+            if file_response == "file_response" and status == "accept":
+                await manager.transfer_file(client_ip)
+    except WebSocketDisconnect:
+        manager.disconnect(client_ip)
 
 
-@app.get("/upload")
-async def upload_page():
-    if not UPLOAD_HTML_PATH.exists():
-        raise RuntimeError(status_code=500, detail="传输页面丢失!")
-    
-    return FileResponse(str(UPLOAD_HTML_PATH))
+@app.post("/send_file")
+async def send_file_request(
+    client_ip: str = Body(title="连接设备IP", embed=True),
+    filename: str = Body(title="文件名", embed=True),
+    filepath: str = Body(title="发送文件路径", embed=True)
+):
+    if client_ip in manager.active_connections:
+        await manager.send_personal_message(
+            f"file_request:{filename}:{get_local_ip()}",
+            client_ip,
+            filepath
+        )
+        return {"status": "request_sent"}
+    else:
+        return {"status": "device_offline"}
 
 
 @app.post("/upload")

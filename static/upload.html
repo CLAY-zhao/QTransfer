@@ -122,6 +122,113 @@
             text-align: center;
             font-size: 14px;
         }
+
+        /* ----- 文件进度条 ----- */
+        .download-progress {
+            width: 90%;
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: none;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .filename {
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 70%;
+        }
+
+        .percentage {
+            font-weight: 700;
+            color: #2c7be5;
+        }
+
+        .progress-container {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #2c7be5, #00d97e);
+            border-radius: 4px;
+            transition: width 0.3s ease, background 0.3s;
+        }
+
+        .progress-indicator {
+            position: absolute;
+            right: 0;
+            top: -4px;
+            width: 16px;
+            height: 16px;
+            background: #fff;
+            border: 2px solid #2c7be5;
+            border-radius: 50%;
+            transform: translateX(50%);
+            z-index: 2;
+        }
+
+        .progress-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .progress-details span {
+            flex: 1;
+        }
+
+        .speed {
+            text-align: center;
+        }
+
+        .remaining {
+            text-align: right;
+            padding-right: 10px;
+        }
+
+        .total {
+            text-align: right;
+            font-weight: 600;
+        }
+
+        /* 动画效果 */
+        @keyframes pulse {
+            0% {
+                opacity: 0.6;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.6;
+            }
+        }
+
+        .active-transfer .progress-bar {
+            animation: pulse 1.5s infinite;
+        }
     </style>
 </head>
 
@@ -141,6 +248,24 @@
         <div id="status"></div>
     </div>
 
+    <!-- 电脑传输文件进度条 -->
+    <div class="download-progress">
+        <div class="progress-header">
+            <span class="filename">正在下载: file.bin</span>
+            <span class="percentage">0%</span>
+        </div>
+        <div class="progress-container">
+            <div class="progress-bar"></div>
+            <div class="progress-indicator"></div>
+        </div>
+        <div class="progress-details">
+            <span class="transferred">0 KB</span>
+            <span class="speed">0 KB/s</span>
+            <span class="remaining">剩余: --</span>
+            <span class="total">0 KB</span>
+        </div>
+    </div>
+
     <div class="panel">
         <div class="panel-title">📱 当前连接设备（0）</div>
         <div id="device-list" class="device-list">
@@ -155,11 +280,192 @@
     </div>
 
     <script>
+        // 进度条
+        class DownloadProgress {
+            constructor() {
+                this.lastUpdate = 0;
+                this.lastBytes = 0;
+                this.speed = 0;
+                this.totalSize = 0; // 示例总大小
+
+                // 获取DOM元素
+                this.elements = {
+                    container: document.querySelector('.download-progress'),
+                    filename: document.querySelector('.filename'),
+                    percentage: document.querySelector('.percentage'),
+                    progressBar: document.querySelector('.progress-bar'),
+                    indicator: document.querySelector('.progress-indicator'),
+                    transferred: document.querySelector('.transferred'),
+                    speed: document.querySelector('.speed'),
+                    remaining: document.querySelector('.remaining'),
+                    total: document.querySelector('.total'),
+                    filename: document.querySelector('.filename')
+                };
+
+                // 初始化显示
+                this.elements.total.textContent = this.formatSize(this.totalSize);
+            }
+
+            setDownloadTitle(title) {
+                this.elements.container.style.display = 'block'
+                this.elements.filename.textContent = `正在下载: ${title}`
+            }
+
+            update(currentBytes) {
+                const now = Date.now();
+                const elapsed = (now - this.lastUpdate) / 1000; // 转换为秒
+
+                // 计算速度（至少1秒更新一次）
+                if (elapsed >= 1) {
+                    this.speed = (currentBytes - this.lastBytes) / elapsed;
+                    this.lastUpdate = now;
+                    this.lastBytes = currentBytes;
+                }
+
+                // 计算进度和剩余时间
+                const percent = Math.min(100, (currentBytes / this.totalSize) * 100);
+                const remaining = this.speed > 0
+                    ? this.formatTime((this.totalSize - currentBytes) / this.speed)
+                    : '--';
+
+                // 更新UI
+                this.elements.percentage.textContent = `${Math.floor(percent)}%`;
+                this.elements.progressBar.style.width = `${percent}%`;
+                this.elements.indicator.style.display = percent >= 100 ? 'none' : 'block';
+                this.elements.transferred.textContent = this.formatSize(currentBytes);
+                this.elements.speed.textContent = `${this.formatSize(this.speed)}/s`;
+                this.elements.remaining.textContent = `剩余: ${remaining}`;
+
+                // 添加激活状态类
+                this.elements.container.classList.add('active-transfer');
+
+                // 传输完成时移除动画
+                if (percent >= 100) {
+                    this.elements.container.classList.remove('active-transfer');
+                    this.elements.progressBar.style.background = '#00d97e';
+                    this.elements.container.style.display = 'none'
+                }
+            }
+
+            formatSize(bytes) {
+                if (bytes < 1024) return `${bytes} B`;
+                if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+                return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+            }
+
+            formatTime(seconds) {
+                if (seconds > 3600) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+                if (seconds > 60) return `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
+                return `${Math.floor(seconds)}s`;
+            }
+        }
+
+        const progress = new DownloadProgress();
+
+        class FileReceiver {
+            constructor() {
+                this.chunks = [];
+                this.fileSize = 0;
+                this.receivedSize = 0;
+                this.fileName = '';
+            }
+
+            async startTransfer(metadata) {
+                this.fileName = metadata.filename;
+                this.fileSize = metadata.filesize;
+                progress.totalSize = this.fileSize
+                progress.setDownloadTitle(this.fileName)
+
+                if (this.canUseFileSystemAPI()) {
+                    try {
+                        this.fileHandle = await window.showSaveFilePicker({
+                            suggestedName: this.fileName
+                        });
+                        this.writer = await this.fileHandle.createWritable();
+                        return true;
+                    } catch (err) {
+                        console.warn("无法使用文件系统API:", err);
+                        return this.useFallback();
+                    }
+                } else {
+                    return this.useFallback();
+                }
+            }
+
+            canUseFileSystemAPI() {
+                return 'showSaveFilePicker' in window && window.isSecureContext;
+            }
+
+            useFallback() {
+                this.chunks = [];
+                this.receivedSize = 0;
+                return true;
+            }
+
+            async receiveChunk(chunk) {
+                if (this.writer) {
+                    await this.writer.write(chunk);
+                } else {
+                    this.chunks.push(chunk);
+                }
+                this.receivedSize += chunk.byteLength;
+
+                progress.update(Math.min(this.receivedSize, progress.totalSize));
+            }
+
+            async completeTransfer() {
+                if (this.writer) {
+                    await this.writer.close();
+                } else {
+                    // 传统下载方式
+                    const blob = new Blob(this.chunks);
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = this.fileName;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                }
+            }
+        }
+
         const panelTitleEle = document.querySelector('.panel-title')
 
-        window.onload = () => {
-            fetch('/record_ip')
+        fetch('/record_ip')
+
+        // =============================== websocket ===============================
+
+        let fileWriter = null
+        let receivedFile = null
+        let filenames = null
+        const socket = new WebSocket(`ws://${window.location.host}/ws/connect`)
+        const fileReceiver = new FileReceiver()
+        socket.onmessage = async (event) => {
+            if (event.data.startsWith !== undefined && event.data.startsWith("file_request:")) {
+                const [_, filename, sender] = event.data.split(":")
+                filenames = filename
+                showFileRequestDialog(filename, sender)
+            } else if (typeof event.data === "string") {
+                const data = JSON.parse(event.data)
+                if (data.type === "file_metadata") {
+                    await fileReceiver.startTransfer(data)
+                } else if (data.type === "transfer_complete") {
+                    await fileReceiver.completeTransfer()
+                }
+            } else {
+                await fileReceiver.receiveChunk(await event.data.arrayBuffer())
+            }
         }
+
+        function showFileRequestDialog(filename, sender) {
+            if (confirm(`是否接收来自 ${sender} 的文件 ${filename}？`)) {
+                socket.send(`file_response:${sender}:accept`)
+            } else {
+                socket.send(`file_response:${sender}:reject`)
+            }
+        }
+
+        // =============================== websocket ===============================
 
         async function getAndReportIP() {
             // 获取并上报当前设备IP
