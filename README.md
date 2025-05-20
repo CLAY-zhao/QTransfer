@@ -17,4 +17,4 @@
 
 在电脑中将文件发送给连接的设备时，会展示进度条观看，并支持多设备同时发送
 
-<img src="img/multi_download.gif" width="70%">
+<img src="img/multi_download.gif" width="100%">
