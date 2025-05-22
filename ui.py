@@ -1,9 +1,12 @@
 import os
+import time
+import threading
 
-import requests
+import pyperclip
 import qrcode
+import requests
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
 from PIL import ImageTk
 
 from config import connected_devices
@@ -42,6 +45,79 @@ def show_upload_dialog(parent=None, message="文件发送中..."):
     return dialog
 
 
+def clipboard_ui(main_frame):
+    # 全局变量控制剪贴板同步状态
+    clipboard_sync_enabled = tk.BooleanVar(value=False)  # 默认关闭
+
+        # =============== 新增剪贴板同步开关卡片 ===============
+    sync_card = tk.Frame(main_frame,
+                        bg="white",
+                        padx=15,
+                        pady=12,
+                        relief=tk.FLAT,
+                        highlightbackground="#e0e6ed",
+                        highlightthickness=1)
+    sync_card.pack(fill=tk.X, pady=(0, 10))  # 紧跟在main_frame后添加，确保可见
+
+    # 开关控制变量
+    clipboard_sync_enabled = tk.BooleanVar(value=False)
+
+    def toggle_clipboard_sync():
+        if clipboard_sync_enabled.get():
+            if not messagebox.askyesno(
+                "安全警告",
+                "剪贴板同步会实时共享复制的内容到其他设备。\n\n"
+                "请确保：\n"
+                "1. 不在敏感场景使用（如密码、隐私信息）\n"
+                "2. 仅信任设备连接\n\n"
+                "确定要启用吗？",
+                icon="warning"
+            ):
+                clipboard_sync_enabled.set(False)
+                return
+            threading.Thread(target=monitor_clipboard, args=(monitor_clipboard_callback,), daemon=True).start()
+            status_label.config(text="状态: 已启用", fg="#4CAF50")
+        else:
+            status_label.config(text="状态: 已关闭", fg="#f44336")
+
+    # ===== 剪贴板监听功能 =====
+    def monitor_clipboard(callback):
+        last_content = ""
+        while clipboard_sync_enabled.get():  # 只有当开关开启时运行
+            try:
+                current_content = pyperclip.paste()
+                if current_content and current_content != last_content:
+                    last_content = current_content
+                    callback(current_content)
+                time.sleep(0.5)  # 降低CPU占用
+            except Exception as e:
+                print(f"剪贴板监听错误: {e}")
+
+    def monitor_clipboard_callback(paste):
+        requests.post(f"http://localhost:8000/sync_clipboard", json={"text": paste})           
+
+    # 开关组件
+    tk.Checkbutton(
+        sync_card,
+        text="剪贴板同步",
+        variable=clipboard_sync_enabled,
+        command=toggle_clipboard_sync,
+        font=("Arial", 10),
+        bg="white",
+        activebackground="white",
+        cursor="hand2"
+    ).pack(side=tk.LEFT)
+
+    status_label = tk.Label(
+        sync_card,
+        text="状态: 已关闭",
+        font=("Arial", 9),
+        fg="#f44336",
+        bg="white"
+    )
+    status_label.pack(side=tk.LEFT, padx=(10, 0))
+
+
 def show_qrcode(url):
     root = tk.Tk()
     root.title("📱 设备连接管理器")
@@ -54,6 +130,8 @@ def show_qrcode(url):
     # 主容器
     main_frame = tk.Frame(root, bg="#f5f7fa", padx=20, pady=20)
     main_frame.pack(fill=tk.BOTH, expand=True)
+
+    clipboard_ui(main_frame)
     
     # 二维码卡片
     qr_card = tk.Frame(main_frame, 

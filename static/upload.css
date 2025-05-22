@@ -1,0 +1,347 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.title {
+    text-align: center;
+    letter-spacing: .5px;
+    margin-bottom: 30px;
+}
+
+.panel {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.panel-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.device-list {
+    margin-top: 15px;
+}
+
+.device-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #fff;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.device-icon {
+    margin-right: 10px;
+    color: #4CAF50;
+}
+
+.upload-container {
+    border: 2px dashed #ccc;
+    padding: 25px;
+    text-align: center;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    background-color: #f9f9f9;
+}
+
+#file-input {
+    display: none;
+}
+
+#upload-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+#upload-btn:hover {
+    background-color: #45a049;
+}
+
+#selected-files {
+    margin-top: 15px;
+    color: #666;
+}
+
+#progress-container {
+    margin-top: 20px;
+    display: none;
+}
+
+#progress-bar {
+    width: 100%;
+    background-color: #f3f3f3;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+#progress {
+    height: 24px;
+    background-color: #4CAF50;
+    width: 0%;
+    text-align: center;
+    line-height: 24px;
+    color: white;
+    transition: width 0.3s;
+}
+
+#status {
+    margin-top: 10px;
+    margin-bottom: 5px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.current-ip {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #e8f5e9;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* ----- 文件进度条 ----- */
+.download-progress {
+    width: 90%;
+    max-width: 500px;
+    margin: 20px auto;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: none;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.filename {
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70%;
+}
+
+.percentage {
+    font-weight: 700;
+    color: #2c7be5;
+}
+
+.progress-container {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #2c7be5, #00d97e);
+    border-radius: 4px;
+    transition: width 0.3s ease, background 0.3s;
+}
+
+.progress-indicator {
+    position: absolute;
+    right: 0;
+    top: -4px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border: 2px solid #2c7be5;
+    border-radius: 50%;
+    transform: translateX(50%);
+    z-index: 2;
+}
+
+.progress-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.progress-details span {
+    flex: 1;
+}
+
+.speed {
+    text-align: center;
+}
+
+.remaining {
+    text-align: right;
+    padding-right: 10px;
+}
+
+.total {
+    text-align: right;
+    font-weight: 600;
+}
+
+/* 动画效果 */
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
+}
+
+.active-transfer .progress-bar {
+    animation: pulse 1.5s infinite;
+}
+
+/* 剪贴板 */
+/* 剪贴板面板样式 */
+.clipboard-panel {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin: 16px auto;
+    max-width: 100%;
+    overflow: hidden;
+    border: 1px solid #e0e6ed;
+}
+
+.clipboard-content {
+    max-height: 150px;
+    /* 固定高度 */
+    min-height: 50px;
+    padding: 12px 16px;
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    /* 保留换行 */
+    word-break: break-word;
+    /* 长单词换行 */
+    color: #333;
+    position: relative;
+}
+
+.clipboard-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.clipboard-content::-webkit-scrollbar-thumb {
+    background: #d1d8e0;
+    border-radius: 3px;
+}
+
+.empty-state {
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    padding: 10px 0;
+}
+
+/* 内容省略效果 */
+.clipboard-content.truncated::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), white);
+}
+
+.clipboard-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    border-top: 1px solid #f0f2f5;
+    background: #f9fafc;
+}
+
+.clipboard-btn {
+    background: #3a7bd5;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.clipboard-btn:hover {
+    background: #2c65b8;
+}
+
+.btn-icon {
+    margin-right: 4px;
+    font-size: 14px;
+}
+
+.timestamp {
+    font-size: 12px;
+    color: #888;
+}
+
+/* 添加动画效果 */
+.clipboard-content {
+    transition: all 0.3s ease;
+}
+
+/* 超链接样式 */
+.clipboard-content a {
+    color: #3a7bd5;
+    text-decoration: none;
+    word-break: break-all;
+}
+
+/* 代码块样式 */
+.clipboard-content pre {
+    background: #f5f7fa;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: monospace;
+}
+
+/* 不同内容类型的图标提示 */
+.clipboard-content[data-type="url"]::before,
+.clipboard-content[data-type="code"]::before {
+    content: "🔗";
+    margin-right: 5px;
+    opacity: 0.6;
+}
+
+.clipboard-content[data-type="code"]::before {
+    content: "</>";
+}

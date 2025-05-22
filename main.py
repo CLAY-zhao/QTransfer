@@ -91,6 +91,20 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(client_ip)
 
 
+@app.post("/sync_clipboard")
+async def sync_clipboard(text: str = Body(title="剪贴板内容", embed=True)):
+    if not text:
+        return {"status": None}
+    
+    # 同步所有连接设备
+    for websocket in manager.active_connections.values():
+        await websocket.send_json({
+            "type": "clipboard_metadata",
+            "text": text
+        })
+    return {"status": ""}
+
+
 @app.post("/send_file")
 async def send_file_request(
     client_ip: str = Body(title="连接设备IP", embed=True),
