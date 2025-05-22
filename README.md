@@ -17,4 +17,12 @@
 
 在电脑中将文件发送给连接的设备时，会展示进度条观看，并支持多设备同时发送
 
-<img src="img/multi_download.gif" width="100%">
+<img src="img/multi_download.gif" width="70%">
+
+已支持剪贴板同步，电脑启动服务后并勾选“剪贴板同步”开关，当进行复制操作，就会同步到所有连接设备上展示复制内容
+
+![alt text](img/sync_clipboard.png)
+
+连接设备同步剪贴板内容
+
+<img src="img/sync_clipboard.gif" width="40%">
